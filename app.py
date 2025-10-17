@@ -7,70 +7,86 @@ from tensorflow.keras.utils import load_img, img_to_array
 import numpy as np
 from kaggle.api.kaggle_api_extended import KaggleApi
 
-# Setup Kaggle credentials securely from Streamlit secrets
+# --- Configuration ---
 os.environ["KAGGLE_USERNAME"] = st.secrets["KAGGLE_USERNAME"]
 os.environ["KAGGLE_KEY"] = st.secrets["KAGGLE_KEY"]
-
-# Define the dataset's root folder name
 DATASET_ROOT_FOLDER = 'brain-tumor-mri-dataset'
-# Anticipated path *if* extraction is perfect
-DEFAULT_TRAIN_PATH = os.path.join(DATASET_ROOT_FOLDER, 'Training')
+FINAL_TRAIN_PATH = os.path.join(DATASET_ROOT_FOLDER, 'Training')
 
 @st.cache_resource
-def download_and_get_data_path():
-    """Downloads the dataset and returns the correct path for the ImageDataGenerator."""
+def download_and_clean_data():
+    """
+    Downloads the dataset and uses a shell command to correct the folder structure.
+    Returns the FINAL_TRAIN_PATH if successful, or None otherwise.
+    """
     api = KaggleApi()
     api.authenticate()
-    
-    # 1. Download and Unzip (if the root folder doesn't exist)
+
     if not os.path.exists(DATASET_ROOT_FOLDER):
-        st.info("Dataset root folder not found. Downloading and extracting...")
+        st.info("Dataset not found. Downloading and extracting...")
         try:
             api.dataset_download_files('masoudnickparvar/brain-tumor-mri-dataset', path='.', unzip=True)
             st.success("Initial download and extraction complete.")
         except Exception as e:
             st.error(f"Kaggle Download Failed: {e}")
-            return None # Return None if download fails
+            return None
 
-    # 2. Check for correct path or nested structure
-    
-    # Check 1: Is the expected path correct?
-    if os.path.exists(DEFAULT_TRAIN_PATH):
-        st.write("Dataset structure is correct.")
-        return DEFAULT_TRAIN_PATH
-    
-    # Check 2: Look for a nested structure if the root folder exists
-    if os.path.exists(DATASET_ROOT_FOLDER):
+    # Check for the common nested folder issue and use shell commands to fix it.
+    if not os.path.exists(FINAL_TRAIN_PATH):
+        st.warning("Training path missing. Checking for nested folder...")
+        
+        # Get the list of contents in the root folder
         contents = os.listdir(DATASET_ROOT_FOLDER)
         
-        # This logic handles a common case where the ZIP extracts to a single nested folder
+        # We look for a single nested folder (e.g., 'brain_tumor_mri_dataset')
         if len(contents) == 1 and os.path.isdir(os.path.join(DATASET_ROOT_FOLDER, contents[0])):
-            nested_folder = contents[0]
-            corrected_path = os.path.join(DATASET_ROOT_FOLDER, nested_folder, 'Training')
+            nested_dir = contents[0]
+            NESTED_TRAIN_PATH = os.path.join(DATASET_ROOT_FOLDER, nested_dir, 'Training')
             
-            if os.path.exists(corrected_path):
-                st.warning(f"Dataset structure was nested. Path corrected to: {corrected_path}")
-                return corrected_path
+            if os.path.exists(NESTED_TRAIN_PATH):
+                st.info(f"Nested structure found: {nested_dir}. Fixing with shell commands...")
 
-    # 3. If all checks fail
-    st.error(f"Required data path is missing. Tried: {DEFAULT_TRAIN_PATH}")
+                try:
+                    # Shell command 1: Move all contents from the nested directory up to the root
+                    source = os.path.join(DATASET_ROOT_FOLDER, nested_dir, '*')
+                    destination = DATASET_ROOT_FOLDER
+                    # Using 'mv' command to move contents up one level
+                    os.system(f'mv {source} {destination}')
+
+                    # Shell command 2: Remove the empty nested directory
+                    os.system(f'rmdir {os.path.join(DATASET_ROOT_FOLDER, nested_dir)}')
+                    
+                    st.success("File structure corrected successfully using shell commands.")
+                    # After the shell move, FINAL_TRAIN_PATH should now exist.
+                    if os.path.exists(FINAL_TRAIN_PATH):
+                        return FINAL_TRAIN_PATH
+                    else:
+                        st.error("Correction failed: 'Training' folder still not found after shell move.")
+                        return None
+                except Exception as e:
+                    st.error(f"Shell command failed: {e}")
+                    return None
+
+    if os.path.exists(FINAL_TRAIN_PATH):
+        return FINAL_TRAIN_PATH
+    
+    st.error(f"Required data path is missing: {FINAL_TRAIN_PATH}. Cannot proceed.")
     return None
 
 # Execute the download and get the definitive data path
-TRAIN_DATA_PATH = download_and_get_data_path()
+TRAIN_DATA_PATH = download_and_clean_data()
 
 # ----------------------------------------------------------------------
 # DATA LOADING SETUP
 # ----------------------------------------------------------------------
 
 if TRAIN_DATA_PATH is None:
-    st.stop() # Stop execution if the path could not be determined
+    st.stop()
 
 img_size = (150, 150)
 batch_size = 16
 train_gen = ImageDataGenerator(rescale=1./255, validation_split=0.2)
 
-# Now, we use the guaranteed-correct TRAIN_DATA_PATH
 train_ds = train_gen.flow_from_directory(
     TRAIN_DATA_PATH,
     target_size=img_size,
@@ -94,7 +110,7 @@ class_labels = list(train_ds.class_indices.keys())
 st.write(f"Found {num_classes} classes: {class_labels}")
 
 # ----------------------------------------------------------------------
-# MODEL DEFINITION (no change)
+# MODEL DEFINITION
 # ----------------------------------------------------------------------
 model = models.Sequential([
     layers.Conv2D(32, (3,3), activation='relu', input_shape=(150,150,3)),
@@ -111,7 +127,7 @@ model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accur
 st.title("Brain Tumor Classification (4 Classes)")
 
 # ----------------------------------------------------------------------
-# STREAMLIT UI AND EXECUTION (no change)
+# STREAMLIT UI AND EXECUTION
 # ----------------------------------------------------------------------
 if st.button("Train Model"):
     with st.spinner("Training in progress..."):
