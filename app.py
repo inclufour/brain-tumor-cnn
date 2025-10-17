@@ -7,20 +7,27 @@ from tensorflow.keras.utils import load_img, img_to_array
 import numpy as np
 from kaggle.api.kaggle_api_extended import KaggleApi 
 
-DATASET_NAME = 'yourusername/brain-mri-binary-classified' 
+# --- CONFIGURATION: REPLACE THIS LINE WITH YOUR ACTUAL DATASET SLUG ---
+# Example: 'inclufour/brain-mri-binary-classified'
+DEFAULT_DATASET_SLUG = 'yourusername/brain-mri-binary-classified' 
+# ---------------------------------------------------------------------
+
 DATASET_ROOT_FOLDER = 'Binary_MRI_Dataset' 
 
 TRAIN_DIR = os.path.join(DATASET_ROOT_FOLDER, 'train')
 VAL_DIR = os.path.join(DATASET_ROOT_FOLDER, 'val')
 
+# Determine the dataset slug to use (prefers secret, falls back to default)
+DATASET_SLUG = st.secrets.get("DATASET_SLUG", DEFAULT_DATASET_SLUG)
+
 @st.cache_resource
-def download_data():
+def download_data(dataset_slug):
     if os.path.exists(TRAIN_DIR) and os.path.exists(VAL_DIR):
         st.write("Dataset already exists locally.")
         return True
 
     if "KAGGLE_USERNAME" not in st.secrets or "KAGGLE_KEY" not in st.secrets:
-        st.error("Kaggle credentials not found in Streamlit Secrets. Cannot download private dataset.")
+        st.error("Kaggle credentials (KAGGLE_USERNAME/KAGGLE_KEY) not found in Streamlit Secrets. Cannot download private dataset.")
         st.stop()
     
     try:
@@ -30,23 +37,26 @@ def download_data():
         api = KaggleApi()
         api.authenticate()
         
-        st.info(f"Downloading and extracting private dataset: {DATASET_NAME}...")
-        api.dataset_download_files(DATASET_NAME, path='.', unzip=True)
+        st.info(f"Downloading and extracting private dataset: {dataset_slug}...")
+        api.dataset_download_files(dataset_slug, path='.', unzip=True)
         st.success("Download and extraction complete.")
         
         if os.path.exists(TRAIN_DIR) and os.path.exists(VAL_DIR):
             return True
         else:
-            st.error(f"Downloaded root folder found, but training path '{TRAIN_DIR}' is missing. Check dataset structure.")
+            st.error(f"Downloaded root folder found, but training path '{TRAIN_DIR}' is missing. Check dataset structure and zip contents.")
             return False
 
     except Exception as e:
-        st.error(f"Kaggle Download Failed. Ensure dataset is published and the slug '{DATASET_NAME}' is correct. Error: {e}")
+        # The specific 403 error you got means this logic is running, but auth or slug is wrong.
+        st.error(f"Kaggle Download Failed. Ensure dataset is published/private, the slug '{dataset_slug}' is correct, and Kaggle secrets are valid. Error: {e}")
         return False
 
-if not download_data():
+# Execute download with the determined slug
+if not download_data(DATASET_SLUG):
     st.error(f"Required data folders '{TRAIN_DIR}' and '{VAL_DIR}' not found. Cannot proceed.")
     st.stop()
+
 
 # ----------------------------------------------------------------------
 # DATA LOADING SETUP
