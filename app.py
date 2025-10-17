@@ -74,4 +74,40 @@ else:
         layers.MaxPooling2D(2,2),
         layers.Conv2D(64, (3,3), activation='relu'),
         layers.MaxPooling2D(2,2),
-        layers.
+        layers.Flatten(),
+        layers.Dense(128, activation='relu'),
+        layers.Dense(num_classes, activation='softmax')
+    ])
+
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+    st.title("Brain Tumor Classification (4 Classes)")
+# ----------------------------------------------------------------------
+# STREAMLIT UI AND EXECUTION
+# ----------------------------------------------------------------------
+    if st.button("Train Model"):
+        with st.spinner("Training in progress..."):
+            history = model.fit(train_ds, validation_data=val_ds, epochs=10) 
+            st.success("Training complete!")
+            st.line_chart({
+                "Training Accuracy": history.history['accuracy'],
+                "Validation Accuracy": history.history['val_accuracy']
+            })
+
+    uploaded_file = st.file_uploader("Upload MRI Image for Prediction", type=["jpg", "jpeg", "png"])
+
+    if uploaded_file is not None:
+        img = load_img(uploaded_file, target_size=img_size)
+        st.image(img, use_column_width=True, caption="Uploaded image")
+
+        x = img_to_array(img)/255.0
+        x = np.expand_dims(x, axis=0)
+        
+        pred_array = model.predict(x)[0]
+        
+        pred_class_index = np.argmax(pred_array)
+        
+        predicted_label = class_labels[pred_class_index]
+        confidence = pred_array[pred_class_index]
+
+        st.write(f"Prediction: **{predicted_label}** (Confidence: {confidence:.2f})")
