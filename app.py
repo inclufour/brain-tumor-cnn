@@ -5,23 +5,16 @@ from tensorflow.keras import layers, models
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.utils import load_img, img_to_array
 import numpy as np
+import pandas as pd # <-- ADDED for line_chart fix
 from kaggle.api.kaggle_api_extended import KaggleApi 
 
-# --- CONFIGURATION: FINAL CORRECT SLUG ---
-# Slug is correct: inclufour/final-brain-tumor
+# --- CONFIGURATION: FINAL CORRECT SLUG & FOLDER ---
 DEFAULT_DATASET_SLUG = 'inclufour/final-brain-tumor' 
-# ------------------------------------------
-
-# --- NEW: ROOT FOLDER NAME CORRECTED ---
-# This matches the directory created when the ZIP file is extracted (as per your image).
 DATASET_ROOT_FOLDER = 'tumordataset' 
-# ---------------------------------------
+# --------------------------------------------------
 
-# --- UPDATED SUBDIRECTORY NAMES (LOWERCASE) ---
-# Directories inside 'tumordataset' are 'train' and 'val' (lowercase).
 TRAIN_DIR = os.path.join(DATASET_ROOT_FOLDER, 'train')
 VAL_DIR = os.path.join(DATASET_ROOT_FOLDER, 'val')
-# ----------------------------------------------
 
 # Determine the dataset slug to use (prefers secret, falls back to default)
 DATASET_SLUG = st.secrets.get("DATASET_SLUG", DEFAULT_DATASET_SLUG)
@@ -47,11 +40,9 @@ def download_data(dataset_slug):
         api.dataset_download_files(dataset_slug, path='.', unzip=True)
         st.success("Download and extraction complete.")
         
-        # Check if the expected directories exist after extraction 
         if os.path.exists(TRAIN_DIR) and os.path.exists(VAL_DIR):
             return True
         else:
-            # This error will now display the correct path: 'tumordataset/train'
             st.error(f"Downloaded root folder found, but training path '{TRAIN_DIR}' is missing. Check dataset structure inside the '{DATASET_ROOT_FOLDER}' folder.")
             return False
 
@@ -69,7 +60,7 @@ if not download_data(DATASET_SLUG):
 # DATA LOADING SETUP
 # ----------------------------------------------------------------------
 img_size = (150, 150)
-batch_size = 32
+batch_size = 16 # Reduced batch size to 16 to help prevent memory errors
 
 train_gen = ImageDataGenerator(rescale=1./255, horizontal_flip=True, rotation_range=10) 
 val_gen = ImageDataGenerator(rescale=1./255) 
@@ -121,7 +112,7 @@ if 'model' not in st.session_state:
     st.session_state.class_labels = class_labels
 
 # ----------------------------------------------------------------------
-# TRAINING BUTTON & LOGIC (Template)
+# TRAINING BUTTON & LOGIC (FIXED line_chart issue)
 # ----------------------------------------------------------------------
 st.sidebar.header("Model Training")
 epochs = st.sidebar.number_input("Epochs", min_value=1, value=5, step=1)
@@ -134,9 +125,19 @@ if st.sidebar.button("Start Training"):
             validation_data=val_ds
         )
     st.success("Training complete! Run the prediction below.")
+    
     st.subheader("Training History")
-    st.line_chart(history.history['accuracy'], label='Training Accuracy')
-    st.line_chart(history.history['val_accuracy'], label='Validation Accuracy')
+    
+    # Create a DataFrame for cleaner visualization and automatic labeling
+    history_df = pd.DataFrame({
+        'Epoch': range(1, epochs + 1),
+        'Training Accuracy': history.history['accuracy'],
+        'Validation Accuracy': history.history['val_accuracy']
+    })
+
+    # Plot both lines from the DataFrame. Streamlit uses the column names as labels.
+    st.line_chart(history_df, x='Epoch', y=['Training Accuracy', 'Validation Accuracy'])
+
 
 # ----------------------------------------------------------------------
 # USER PREDICTION LOGIC
