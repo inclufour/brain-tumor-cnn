@@ -7,10 +7,10 @@ from tensorflow.keras.utils import load_img, img_to_array
 import numpy as np
 from kaggle.api.kaggle_api_extended import KaggleApi 
 
-# --- CONFIGURATION: REPLACE THIS LINE WITH YOUR ACTUAL DATASET SLUG ---
-# Example: 'inclufour/brain-mri-binary-classified'
-DEFAULT_DATASET_SLUG = 'yourusername/brain-mri-binary-classified' 
-# ---------------------------------------------------------------------
+# --- CONFIGURATION: FINAL CORRECT SLUG ---
+# This is the exact slug for your private Kaggle dataset.
+DEFAULT_DATASET_SLUG = 'inclufour/final-brain-tumor' 
+# ------------------------------------------
 
 DATASET_ROOT_FOLDER = 'Binary_MRI_Dataset' 
 
@@ -48,8 +48,7 @@ def download_data(dataset_slug):
             return False
 
     except Exception as e:
-        # The specific 403 error you got means this logic is running, but auth or slug is wrong.
-        st.error(f"Kaggle Download Failed. Ensure dataset is published/private, the slug '{dataset_slug}' is correct, and Kaggle secrets are valid. Error: {e}")
+        st.error(f"Kaggle Download Failed. Ensure the slug '{dataset_slug}' is correct and Kaggle secrets are valid. Error: {e}")
         return False
 
 # Execute download with the determined slug
@@ -126,7 +125,7 @@ if st.sidebar.button("Start Training"):
             epochs=epochs,
             validation_data=val_ds
         )
-    st.success("Training complete!")
+    st.success("Training complete! Run the prediction below.")
     st.subheader("Training History")
     st.line_chart(history.history['accuracy'], label='Training Accuracy')
     st.line_chart(history.history['val_accuracy'], label='Validation Accuracy')
