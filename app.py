@@ -8,11 +8,14 @@ import numpy as np
 from kaggle.api.kaggle_api_extended import KaggleApi 
 
 # --- CONFIGURATION: FINAL CORRECT SLUG ---
-# This is the exact slug for your private Kaggle dataset.
+# Slug is correct based on your last input: inclufour/final-brain-tumor
 DEFAULT_DATASET_SLUG = 'inclufour/final-brain-tumor' 
 # ------------------------------------------
 
-DATASET_ROOT_FOLDER = 'Binary_MRI_Dataset' 
+# --- NEW: ROOT FOLDER NAME CORRECTED ---
+# This must match the name of the directory created when the ZIP file is extracted.
+DATASET_ROOT_FOLDER = 'TumorDataset' 
+# ---------------------------------------
 
 TRAIN_DIR = os.path.join(DATASET_ROOT_FOLDER, 'train')
 VAL_DIR = os.path.join(DATASET_ROOT_FOLDER, 'val')
@@ -41,10 +44,12 @@ def download_data(dataset_slug):
         api.dataset_download_files(dataset_slug, path='.', unzip=True)
         st.success("Download and extraction complete.")
         
+        # Check if the expected directories exist after extraction using the new folder name
         if os.path.exists(TRAIN_DIR) and os.path.exists(VAL_DIR):
             return True
         else:
-            st.error(f"Downloaded root folder found, but training path '{TRAIN_DIR}' is missing. Check dataset structure and zip contents.")
+            # This error will now display the correct root folder name for easier debugging
+            st.error(f"Downloaded root folder found, but training path '{TRAIN_DIR}' is missing. Check dataset structure inside the '{DATASET_ROOT_FOLDER}' folder.")
             return False
 
     except Exception as e:
