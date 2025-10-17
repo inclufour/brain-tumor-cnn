@@ -147,7 +147,7 @@ uploaded_file = st.file_uploader("Choose an MRI image...", type=["jpg", "png", "
 
 if uploaded_file is not None:
     image = load_img(uploaded_file, target_size=img_size)
-    st.image(image, caption='Uploaded MRI Image.', use_column_width=True)
+    st.image(image, caption='Uploaded MRI Image.', use_container_width=True)
     
     x = img_to_array(image)
     x = np.expand_dims(x, axis=0)
