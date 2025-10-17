@@ -4,4 +4,5 @@ numpy
 matplotlib
 streamlit
 Pillow
-kaggle
+Kaggle
+h5py
