@@ -6,3 +6,4 @@ streamlit
 Pillow
 Kaggle
 h5py
+scipy
